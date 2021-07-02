@@ -29,9 +29,9 @@ private:
 };
 
 //Declare graphics variables
-const int SCREEN_WIDTH = 1028;
+const int SCREEN_WIDTH = 1024;
 const int SCREEN_HEIGHT = 512;
-const int MODIFIER = 32;
+const int MODIFIER = 8;
 const unsigned char TRANS_COLORS[3] = { 54, 57, 63 }; //RGB of the color to treat as transparent when loading images
 const char* FONT_PATH = "C:/Windows/Fonts/consola.ttf";
 const int FONT_SIZE = 18;
@@ -207,13 +207,21 @@ int LTexture::getHeight() {
 }
 
 //Declare chip8 variables
-chip8 myChip8;
-SDL_Rect chip8Rect = { 0, 0, 512, 256 };
+chip8 myChip8; //The one and only
+SDL_Rect chip8Rect = { 0, 0, 512, 256 }; //The chip8 display
+SDL_Rect regRect = { 0, 256, 512, 256 }; //The register display
+SDL_Rect memRect = { 512, 0, 512, 512 }; //The memory display
 
 
 //Main
 int main(int argc, char** argv) {
 	printf("OctoChip-8\n\n");
+
+	//Check if enough arguments are supplied
+	if (argc < 2) {
+		printf("Usage: OctoChip-8.exe <ROM path>\n");
+		return 1;
+	}
 
 	//Initialize display
 	if (!init_SDL()) {
@@ -221,10 +229,15 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
+	if (!myChip8.loadApplication(argv[1])) {
+		return 1;
+	}
+
 	//Stores the strings to display the register values, if displayed in hex instead of decimal then 50 is larger than needed
 	char regRow[8][50];
 	//Names of the registers in the third column
 	char regCol3[8][3] = { "OP", "PC", "I", "SP", "", "", "DT", "ST" };
+
 
 	//Main loop
 	bool quit = false;
@@ -241,9 +254,11 @@ int main(int argc, char** argv) {
 			}
 		}
 
-		//Clear screen
+		//Clear register and memory displays
 		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-		SDL_RenderClear(renderer);
+		SDL_RenderFillRect(renderer, &regRect);
+		SDL_RenderFillRect(renderer, &memRect);
+
 
 		//Display registers
 		short values[40] = { 0 };
@@ -254,9 +269,24 @@ int main(int argc, char** argv) {
 			textTexture.render(4, 260 + (18 * i));
 		}
 
-		//Placeholder rect where chip8 display will go
-		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-		SDL_RenderFillRect(renderer, &chip8Rect);
+
+		//Update chip8 display if it has changed
+		if (myChip8.drawFlag) {
+			SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+			SDL_RenderFillRect(renderer, &chip8Rect);
+			SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+			for (int y = 0; y < 32; ++y) {
+				for (int x = 0; x < 64; ++x) {
+					if (myChip8.gfx[x + (y * 64)] == 1) {
+						SDL_Rect pixelRect = { x * MODIFIER, y * MODIFIER, MODIFIER, MODIFIER };
+						SDL_RenderFillRect(renderer, &pixelRect);
+					}
+				}
+			}
+
+			//Set draw flag to false
+			myChip8.drawFlag = false;
+		}
 
 		//Update screen
 		SDL_RenderPresent(renderer);
