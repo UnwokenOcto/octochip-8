@@ -29,8 +29,8 @@ private:
 };
 
 //Declare graphics variables
-const int SCREEN_WIDTH = 1024;
-const int SCREEN_HEIGHT = 512;
+const int SCREEN_WIDTH = 512; //formerly 1024
+const int SCREEN_HEIGHT = 406; //formerly 512
 const int MODIFIER = 8;
 const unsigned char TRANS_COLORS[3] = { 54, 57, 63 }; //RGB of the color to treat as transparent when loading images
 const char* FONT_PATH = "C:/Windows/Fonts/consola.ttf";
@@ -211,6 +211,7 @@ chip8 myChip8; //The one and only
 SDL_Rect chip8Rect = { 0, 0, 512, 256 }; //The chip8 display
 SDL_Rect regRect = { 0, 256, 512, 256 }; //The register display
 SDL_Rect memRect = { 512, 0, 512, 512 }; //The memory display
+SDL_Rect chip8Border = { -1, -1, 514, 258 }; //The border around chip8Rect
 
 
 //Main
@@ -242,57 +243,85 @@ int main(int argc, char** argv) {
 	//Main loop
 	bool quit = false;
 	SDL_Event e;
+	int mode = 1;
+	//Modes:
+	//0 - Run normally
+	//1 - Don't run cycle until space is pressed
+	//2 - Space has been pressed, run one cycle
+	//3 - Unknown opcode, press enter to quit
 	while (!quit) {
 		//Event loop
 		while (SDL_PollEvent(&e) != 0) {
 			if (e.type == SDL_QUIT) {
 				quit = true;
 			} else if (e.type == SDL_KEYDOWN) {
-				if (e.key.keysym.sym == SDLK_ESCAPE) {
+				if (e.key.keysym.sym == SDLK_ESCAPE) { //Quit program
 					quit = true;
-				}
-			}
-		}
-
-		//Clear register and memory displays
-		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-		SDL_RenderFillRect(renderer, &regRect);
-		SDL_RenderFillRect(renderer, &memRect);
-
-
-		//Display registers
-		short values[40] = { 0 };
-		myChip8.getRegisters(values);
-		for (int i = 0; i < 8; ++i) {
-			snprintf(regRow[i], 50, "V%X: %02X   V%X: %02X   S%X: %04X   S%X: %04X   %2s: %04X", i, values[i], i+8, values[i+8], i, values[i+16], i+8, values[i+24], regCol3[i], values[i + 32]);
-			textTexture.loadFromRenderedText(regRow[i], BLACK);
-			textTexture.render(4, 260 + (18 * i));
-		}
-
-
-		//Update chip8 display if it has changed
-		if (myChip8.drawFlag) {
-			SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-			SDL_RenderFillRect(renderer, &chip8Rect);
-			SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-			for (int y = 0; y < 32; ++y) {
-				for (int x = 0; x < 64; ++x) {
-					if (myChip8.gfx[x + (y * 64)] == 1) {
-						SDL_Rect pixelRect = { x * MODIFIER, y * MODIFIER, MODIFIER, MODIFIER };
-						SDL_RenderFillRect(renderer, &pixelRect);
+				} else if (e.key.keysym.sym == SDLK_SPACE) { //Space has been pressed, run one cycle
+					mode = 2;
+				} else if (e.key.keysym.sym == SDLK_RETURN) { //Run normally, or quit if mode is 3
+					if (mode == 3) {
+						quit = true;
+					} else {
+						mode = 0;
 					}
 				}
 			}
-
-			//Set draw flag to false
-			myChip8.drawFlag = false;
 		}
 
-		//Update screen
-		SDL_RenderPresent(renderer);
-	}
+		if (mode == 0 || mode == 2) {
+			//Emulate a cycle
+			if (!myChip8.emulateCycle()) {
+				mode = 3;
+			}
 
-	printf("Goodbye.\n");
+			//Clear register and memory displays
+			SDL_SetRenderDrawColor(renderer, 175, 175, 175, 255);
+			SDL_RenderFillRect(renderer, &regRect);
+			//SDL_RenderFillRect(renderer, &memRect);
+
+			//SDL_SetRenderDrawColor(renderer, 127, 127, 127, 255);
+			//SDL_RenderDrawRect(renderer, &chip8Border);
+
+
+			//Display registers
+			unsigned short values[40] = { 0 };
+			myChip8.getRegisters(values);
+			for (int i = 0; i < 8; ++i) {
+				snprintf(regRow[i], 50, "V%X: %02X   V%X: %02X   S%X: %04X   S%X: %04X   %2s: %04X", i, values[i], i + 8, values[i + 8], i, values[i + 16], i + 8, values[i + 24], regCol3[i], values[i + 32]);
+				textTexture.loadFromRenderedText(regRow[i], BLACK);
+				textTexture.render(4, 260 + (18 * i));
+			}
+
+			//Update chip8 display if it has changed
+			if (myChip8.draw_flag) {
+				SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+				SDL_RenderFillRect(renderer, &chip8Rect);
+				SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+				for (int y = 0; y < 32; ++y) {
+					for (int x = 0; x < 64; ++x) {
+						if (myChip8.gfx[x + (y * 64)] == 1) {
+							SDL_Rect pixelRect = { x * MODIFIER, y * MODIFIER, MODIFIER, MODIFIER };
+							SDL_RenderFillRect(renderer, &pixelRect);
+						}
+					}
+				}
+
+				//Set draw flag to false
+				myChip8.draw_flag = false;
+			}
+
+			//Update screen
+			SDL_RenderPresent(renderer);
+
+			//Don't run cycle until space is pressed
+			if (mode == 2) {
+				mode = 1;
+			}
+		}
+	}
+	
+	printf("\n\nGoodbye.\n");
 	close_SDL();
 	return 0;
 }

@@ -8,7 +8,7 @@ int main(int argc, char** argv) {
 	FILE* rom_file;
 	unsigned short opcode;
 	unsigned char memory[4096] = { 0 };
-	unsigned short pc = 0x200;
+	unsigned short pc = 0x200; //Should this be 0x0 or 0x200?
 
 	//Load file
 	if (argv[1] == NULL) {
