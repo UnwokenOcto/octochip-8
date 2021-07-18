@@ -143,11 +143,12 @@ bool chip8::emulateCycle() {
 			printf("Unknown opcode: 0x%X\n", opcode); //???? Increment pc by 2 ????
 			break;
 		}
+		break;
 
 	case 0x1000: //1NNN: Jumps to address NNN
 		pc = opcode & 0x0FFF;
 		break;
-
+		
 	case 0x2000: //2NNN: Calls subroutine at NNN
 		stack[sp] = pc;
 		++sp;
@@ -199,7 +200,13 @@ bool chip8::emulateCycle() {
 			V[(opcode & 0x0F00) >> 8] += V[(opcode & 0x00F0) >> 4];
 			pc += 2;
 			break;
+
+		default:
+			printf("\nPC: %04X\nOP: %04X", pc, opcode);
+			success = false;
+			break;
 		}
+		break;
 
 	case 0xA000: //ANNN: Sets I to address NNN
 		I = opcode & 0x0FFF;
@@ -224,11 +231,6 @@ bool chip8::emulateCycle() {
 				}
 			}
 		}
-		
-		/*for (int row = 0, mem_offset = 0; row < (opcode & 0x000F) + 1; ++row) {
-			int location = V[(opcode & 0x0F00) >> 8] + (V[(opcode & 0x00F0) >> 4] * 64);
-			gfx[location] = memory[I + mem_offset++];
-		}*/
 
 		draw_flag = true;
 		pc += 2;
@@ -237,12 +239,42 @@ bool chip8::emulateCycle() {
 
 	case 0xF000:
 		switch (opcode & 0x00FF) {
-		case 0x33: //FX33: Stores binary-coded decimal of VX at I
+		case 0x0007: //FX07: Sets VX to the value of the delay timer
+			V[(opcode & 0x0F00) >> 8] = delay_timer;
+			pc += 2;
+			break;
+
+		case 0x0015: //FX15: Sets the delay timer to VX
+			delay_timer = V[(opcode & 0x0F00) >> 8];
+			pc += 2;
+			break;
+
+		case 0x0029: //FX29: Sets I to the location of the sprite for the character VX from the fontset
+			I = V[(opcode & 0x0F00) >> 8] * 5;
+			pc += 2;
+			break;
+
+		case 0x0033: //FX33: Stores binary-coded decimal of VX at I
 			memory[I] = V[(opcode & 0x0F00) >> 8] / 100;
 			memory[I + 1] = (V[(opcode & 0x0F00) >> 8] / 10) % 10;
 			memory[I + 2] = (V[(opcode & 0x0F00) >> 8] % 100) % 10;
+			pc += 2;
+			break;
+
+		case 0x0065: //FX65: Fills V0 to VX (Including VX) with values from memory starting from I
+			for (int i = 0; i <= ((opcode & 0x0F00) >> 8); ++i) {
+				V[i] = memory[I + i];
+			}
+			//???? INCREMENTING MAY BE NECESSARY ????
+			pc += 2;
+			break;
+
+		default:
+			printf("\n\nPC: %04X\nOP: %04X", pc, opcode);
+			success = false;
 			break;
 		}
+		break;
 
 	default:
 		printf("\n\nPC: %04X\nOP: %04X", pc, opcode);

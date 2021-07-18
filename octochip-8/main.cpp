@@ -244,6 +244,7 @@ int main(int argc, char** argv) {
 	bool quit = false;
 	SDL_Event e;
 	int mode = 1;
+	int regColor = 175;
 	//Modes:
 	//0 - Run normally
 	//1 - Don't run cycle until space is pressed
@@ -273,10 +274,11 @@ int main(int argc, char** argv) {
 			//Emulate a cycle
 			if (!myChip8.emulateCycle()) {
 				mode = 3;
+				regColor = 150;
 			}
 
 			//Clear register and memory displays
-			SDL_SetRenderDrawColor(renderer, 175, 175, 175, 255);
+			SDL_SetRenderDrawColor(renderer, 175, regColor, regColor, 255);
 			SDL_RenderFillRect(renderer, &regRect);
 			//SDL_RenderFillRect(renderer, &memRect);
 
