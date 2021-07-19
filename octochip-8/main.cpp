@@ -3,6 +3,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
+#include <map>
 #include "chip8.h"
 
 //Texture wrapper class. This comes from Lazy Foo' Productions (http://lazyfoo.net/)
@@ -212,6 +213,24 @@ SDL_Rect chip8Rect = { 0, 0, 512, 256 }; //The chip8 display
 SDL_Rect regRect = { 0, 256, 512, 256 }; //The register display
 SDL_Rect memRect = { 512, 0, 512, 512 }; //The memory display
 SDL_Rect chip8Border = { -1, -1, 514, 258 }; //The border around chip8Rect
+std::map<int, int> keymap = { //The keymap
+		{ SDLK_1, 0x1 },
+		{ SDLK_2, 0x2 },
+		{ SDLK_3, 0x3 },
+		{ SDLK_4, 0xC },
+		{ SDLK_q, 0x4 },
+		{ SDLK_w, 0x5 },
+		{ SDLK_e, 0x6 },
+		{ SDLK_r, 0xD },
+		{ SDLK_a, 0x7 },
+		{ SDLK_s, 0x8 },
+		{ SDLK_d, 0x9 },
+		{ SDLK_f, 0xE },
+		{ SDLK_z, 0xA },
+		{ SDLK_x, 0x0 },
+		{ SDLK_c, 0xB },
+		{ SDLK_v, 0xF },
+};
 
 
 //Main
@@ -234,6 +253,7 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
+	
 	//Stores the strings to display the register values, if displayed in hex instead of decimal then 50 is larger than needed
 	char regRow[8][50];
 	//Names of the registers in the third column
@@ -253,20 +273,35 @@ int main(int argc, char** argv) {
 	while (!quit) {
 		//Event loop
 		while (SDL_PollEvent(&e) != 0) {
-			if (e.type == SDL_QUIT) {
-				quit = true;
-			} else if (e.type == SDL_KEYDOWN) {
-				if (e.key.keysym.sym == SDLK_ESCAPE) { //Quit program
-					quit = true;
-				} else if (e.key.keysym.sym == SDLK_SPACE) { //Space has been pressed, run one cycle
-					mode = 2;
-				} else if (e.key.keysym.sym == SDLK_RETURN) { //Run normally, or quit if mode is 3
+			switch (e.type) {
+			case SDL_QUIT:
+				quit = true; break;
+
+			case SDL_KEYDOWN:
+				switch (e.key.keysym.sym) {
+				case SDLK_ESCAPE: //Quit program
+					quit = true; break;
+
+				case SDLK_SPACE: //Space has been pressed, run one cycle
+					mode = 2; break;
+
+				case SDLK_RETURN: //Run normally, or quit if mode is 3
 					if (mode == 3) {
 						quit = true;
 					} else {
 						mode = 0;
-					}
-				}
+					} break;
+
+				default: //Chip8 key was pressed
+					if (keymap.count(e.key.keysym.sym) == 1) {
+						myChip8.key[keymap[e.key.keysym.sym]] = 1;
+					} break;
+				} break;
+
+			case SDL_KEYUP://Chip8 key was released
+				if (keymap.count(e.key.keysym.sym) == 1) {
+					myChip8.key[keymap[e.key.keysym.sym]] = 0;
+				} break;
 			}
 		}
 

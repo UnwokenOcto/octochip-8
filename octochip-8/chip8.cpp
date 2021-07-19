@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 //#include <Windows.h>
 #include "chip8.h"
 
@@ -64,6 +65,9 @@ void chip8::init() {
 	for (int i = 0; i < 80; ++i) {
 		memory[i] = chip8_fontset[i];
 	}
+
+	//Initialize random generator
+	srand(time(NULL));
 }
 
 //Load application from file
@@ -140,10 +144,10 @@ bool chip8::emulateCycle() {
 			break;
 
 		default: //0NNN: Unnecessary
-			printf("Unknown opcode: 0x%X\n", opcode); //???? Increment pc by 2 ????
+			printf("\n\nPC: %04X\nOP: %04X", pc, opcode);
+			success = false;
 			break;
-		}
-		break;
+		} break;
 
 	case 0x1000: //1NNN: Jumps to address NNN
 		pc = opcode & 0x0FFF;
@@ -191,13 +195,33 @@ bool chip8::emulateCycle() {
 
 	case 0x8000:
 		switch (opcode & 0x000F) {
-		case 0x0004: //8XY4: Adds VY to VX (Set VF to 1 if carry)
-			if (V[(opcode & 0x00F0) >> 4] & (0xFF - V[(opcode & 0x0F00) >> 8])) {
+		case 0x0000: //8XY0: Sets VX to the value of VY
+			V[(opcode & 0x0F00) >> 8] = V[(opcode & 0x00F0) >> 4];
+			pc += 2;
+			break;
+
+		case 0x0002: //8XY2: Sets VX to VX AND VY
+			V[(opcode & 0x0F00) >> 8] &= V[(opcode & 0x00F0) >> 4];
+			pc += 2;
+			break;
+
+		case 0x0004: //8XY4: Adds VY to VX (Set VF to 1 when there is a carry)
+			if (V[(opcode & 0x00F0) >> 4] > (0xFF - V[(opcode & 0x0F00) >> 8])) {
 				V[0xF] = 1;
 			} else {
 				V[0xF] = 0;
 			}
 			V[(opcode & 0x0F00) >> 8] += V[(opcode & 0x00F0) >> 4];
+			pc += 2;
+			break;
+
+		case 0x0005: //8XY5: Subtracts VY from VX (Set VF to 1 when there is no borrow)
+			if (V[(opcode & 0x00F0) >> 4] > (V[(opcode & 0x0F00) >> 8])) {
+				V[0xF] = 0;
+			} else {
+				V[0xF] = 1;
+			}
+			V[(opcode & 0x0F00) >> 8] -= V[(opcode & 0x00F0) >> 4];
 			pc += 2;
 			break;
 
@@ -210,6 +234,11 @@ bool chip8::emulateCycle() {
 
 	case 0xA000: //ANNN: Sets I to address NNN
 		I = opcode & 0x0FFF;
+		pc += 2;
+		break;
+
+	case 0xC000: //CXNN: Sets VX to the result of bitwise AND on a random number (0-255) and NN
+		V[(opcode & 0x0F00) >> 8] = (rand() % 255) & (opcode & 0x00FF);
 		pc += 2;
 		break;
 
@@ -234,8 +263,23 @@ bool chip8::emulateCycle() {
 
 		draw_flag = true;
 		pc += 2;
-		}
-		break;
+		} break;
+		
+	case 0xE000:
+		switch (opcode & 0x00FF) {
+		case 0x00A1: //EXA1: Skips next instruction if the key stored in VX is not pressed
+			if (key[V[(opcode & 0x0F00) >> 8]] == 0) {
+				pc += 4;
+			} else {
+				pc += 2;
+			}
+			break;
+
+		default:
+			printf("\n\nPC: %04X\nOP: %04X", pc, opcode);
+			success = false;
+			break;
+		} break;
 
 	case 0xF000:
 		switch (opcode & 0x00FF) {
@@ -246,6 +290,11 @@ bool chip8::emulateCycle() {
 
 		case 0x0015: //FX15: Sets the delay timer to VX
 			delay_timer = V[(opcode & 0x0F00) >> 8];
+			pc += 2;
+			break;
+
+		case 0x0018: //FX18: Sets the sound timer to VX
+			sound_timer = V[(opcode & 0x0F00) >> 8];
 			pc += 2;
 			break;
 
@@ -273,8 +322,7 @@ bool chip8::emulateCycle() {
 			printf("\n\nPC: %04X\nOP: %04X", pc, opcode);
 			success = false;
 			break;
-		}
-		break;
+		} break;
 
 	default:
 		printf("\n\nPC: %04X\nOP: %04X", pc, opcode);
@@ -288,7 +336,7 @@ bool chip8::emulateCycle() {
 	}
 	if (sound_timer > 0) {
 		if (sound_timer == 1) {
-			printf("BEEP!\n\a");
+			printf("BEEP!\n\a"); //Yes, I'm this lazy
 		}
 		--sound_timer;
 	}
