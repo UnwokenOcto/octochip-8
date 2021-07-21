@@ -31,7 +31,8 @@ private:
 
 //Declare graphics variables
 const int SCREEN_WIDTH = 512; //formerly 1024
-const int SCREEN_HEIGHT = 406; //formerly 512
+const int SCREEN_HEIGHT = 426; //formerly 512
+const int SCREEN_HEIGHT_SMALL = 256;
 const int MODIFIER = 8;
 const unsigned char TRANS_COLORS[3] = { 54, 57, 63 }; //RGB of the color to treat as transparent when loading images
 const char* FONT_PATH = "C:/Windows/Fonts/consola.ttf";
@@ -253,9 +254,20 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	
+	//Instructions screen
+	SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+	SDL_RenderClear(renderer);
+	textTexture.loadFromRenderedText("Enter:   Run normally", BLACK);
+	textTexture.render(18, 18);
+	textTexture.loadFromRenderedText("Space:   Run one cycle", BLACK);
+	textTexture.render(18, 38);
+	textTexture.loadFromRenderedText("Control: Toggle registers", BLACK);
+	textTexture.render(18, 58);
+	SDL_RenderPresent(renderer);
+
+
 	//Stores the strings to display the register values, if displayed in hex instead of decimal then 50 is larger than needed
-	char regRow[8][50];
+	char regRow[9][50];
 	//Names of the registers in the third column
 	char regCol3[8][3] = { "OP", "PC", "I", "SP", "", "", "DT", "ST" };
 
@@ -265,6 +277,9 @@ int main(int argc, char** argv) {
 	SDL_Event e;
 	int mode = 1;
 	int regColor = 175;
+	Uint32 ticks = SDL_GetTicks();
+	int cycles = 0;
+	bool display_registers = true;
 	//Modes:
 	//0 - Run normally
 	//1 - Don't run cycle until space is pressed
@@ -282,14 +297,23 @@ int main(int argc, char** argv) {
 				case SDLK_ESCAPE: //Quit program
 					quit = true; break;
 
-				case SDLK_SPACE: //Space has been pressed, run one cycle
-					mode = 2; break;
-
 				case SDLK_RETURN: //Run normally, or quit if mode is 3
 					if (mode == 3) {
 						quit = true;
 					} else {
 						mode = 0;
+					} break;
+
+				case SDLK_SPACE: //Space has been pressed, run one cycle
+					mode = 2; break;
+
+				case SDLK_LCTRL: //Toggle register display
+				case SDLK_RCTRL:
+					display_registers = !display_registers;
+					if (display_registers) {
+						SDL_SetWindowSize(window, SCREEN_WIDTH, SCREEN_HEIGHT);
+					} else {
+						SDL_SetWindowSize(window, SCREEN_WIDTH, SCREEN_HEIGHT_SMALL);
 					} break;
 
 				default: //Chip8 key was pressed
@@ -312,24 +336,6 @@ int main(int argc, char** argv) {
 				regColor = 150;
 			}
 
-			//Clear register and memory displays
-			SDL_SetRenderDrawColor(renderer, 175, regColor, regColor, 255);
-			SDL_RenderFillRect(renderer, &regRect);
-			//SDL_RenderFillRect(renderer, &memRect);
-
-			//SDL_SetRenderDrawColor(renderer, 127, 127, 127, 255);
-			//SDL_RenderDrawRect(renderer, &chip8Border);
-
-
-			//Display registers
-			unsigned short values[40] = { 0 };
-			myChip8.getRegisters(values);
-			for (int i = 0; i < 8; ++i) {
-				snprintf(regRow[i], 50, "V%X: %02X   V%X: %02X   S%X: %04X   S%X: %04X   %2s: %04X", i, values[i], i + 8, values[i + 8], i, values[i + 16], i + 8, values[i + 24], regCol3[i], values[i + 32]);
-				textTexture.loadFromRenderedText(regRow[i], BLACK);
-				textTexture.render(4, 260 + (18 * i));
-			}
-
 			//Update chip8 display if it has changed
 			if (myChip8.draw_flag) {
 				SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -343,13 +349,39 @@ int main(int argc, char** argv) {
 						}
 					}
 				}
+			}
+
+			if (display_registers) {
+				//Display registers
+				SDL_SetRenderDrawColor(renderer, 175, regColor, regColor, 255);
+				SDL_RenderFillRect(renderer, &regRect);
+				unsigned short values[40] = { 0 };
+				myChip8.getRegisters(values);
+				for (int i = 0; i < 8; ++i) {
+					snprintf(regRow[i], 50, "V%X: %02X   V%X: %02X   S%X: %04X   S%X: %04X   %2s: %04X", i, values[i], i + 8, values[i + 8], i, values[i + 16], i + 8, values[i + 24], regCol3[i], values[i + 32]);
+					textTexture.loadFromRenderedText(regRow[i], BLACK);
+					textTexture.render(4, 260 + (18 * i));
+				}
+
+				//Display cycles per second
+				++cycles;
+				if (SDL_GetTicks() - ticks > 1000) {
+					snprintf(regRow[8], 50, "                         Cycles per second: %4i", (cycles));
+					cycles = 0;
+					ticks = SDL_GetTicks();
+
+				}
+				textTexture.loadFromRenderedText(regRow[8], BLACK);
+				textTexture.render(4, 404);
+			}
+
+			//Update screen
+			if (display_registers || myChip8.draw_flag) {
+				SDL_RenderPresent(renderer);
 
 				//Set draw flag to false
 				myChip8.draw_flag = false;
 			}
-
-			//Update screen
-			SDL_RenderPresent(renderer);
 
 			//Don't run cycle until space is pressed
 			if (mode == 2) {

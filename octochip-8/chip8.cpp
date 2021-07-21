@@ -232,6 +232,14 @@ bool chip8::emulateCycle() {
 		}
 		break;
 
+	case 0x9000: //9XY0: Skips next instruction if VX != VY
+		if (V[(opcode & 0x0F00) >> 8] != V[(opcode & 0x00F0) >> 4]) {
+			pc += 4;
+		} else {
+			pc += 2;
+		}
+		break;
+
 	case 0xA000: //ANNN: Sets I to address NNN
 		I = opcode & 0x0FFF;
 		pc += 2;
@@ -267,6 +275,14 @@ bool chip8::emulateCycle() {
 		
 	case 0xE000:
 		switch (opcode & 0x00FF) {
+		case 0x009E: //EX9E: Skips next instruction if the key stored in VX is pressed
+			if (key[V[(opcode & 0x0F00) >> 8]] == 1) {
+				pc += 4;
+			} else {
+				pc += 2;
+			}
+			break;
+
 		case 0x00A1: //EXA1: Skips next instruction if the key stored in VX is not pressed
 			if (key[V[(opcode & 0x0F00) >> 8]] == 0) {
 				pc += 4;
@@ -298,6 +314,11 @@ bool chip8::emulateCycle() {
 			pc += 2;
 			break;
 
+		case 0x001E: //FX1E: Adds VX to I (VF not affected)
+			I += V[(opcode & 0x0F00) >> 8];
+			pc += 2;
+			break;
+
 		case 0x0029: //FX29: Sets I to the location of the sprite for the character VX from the fontset
 			I = V[(opcode & 0x0F00) >> 8] * 5;
 			pc += 2;
@@ -307,6 +328,14 @@ bool chip8::emulateCycle() {
 			memory[I] = V[(opcode & 0x0F00) >> 8] / 100;
 			memory[I + 1] = (V[(opcode & 0x0F00) >> 8] / 10) % 10;
 			memory[I + 2] = (V[(opcode & 0x0F00) >> 8] % 100) % 10;
+			pc += 2;
+			break;
+
+		case 0x0055: //FX55: Stores V0 to VX (Including VX) in memory starting from address I
+			for (int i = 0; i <= ((opcode & 0x0F00) >> 8); ++i) {
+				memory[I + i] = V[i];
+				//???? INCREMENTING MAY BE NECESSARY ????
+			}
 			pc += 2;
 			break;
 
