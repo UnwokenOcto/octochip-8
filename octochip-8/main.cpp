@@ -263,6 +263,28 @@ int main(int argc, char** argv) {
 	textTexture.render(18, 38);
 	textTexture.loadFromRenderedText("Control: Toggle registers", BLACK);
 	textTexture.render(18, 58);
+	textTexture.loadFromRenderedText("+/-: Change speed by 50", BLACK);
+	textTexture.render(18, 78);
+	textTexture.loadFromRenderedText("Chip-8:        Keyboard:", BLACK);
+	textTexture.render(18, 118);
+	textTexture.loadFromRenderedText("+-+-+-+-+      +-+-+-+-+", BLACK);
+	textTexture.render(18, 138);
+	textTexture.loadFromRenderedText("|1|2|3|C|      |1|2|3|4|", BLACK);
+	textTexture.render(18, 158);
+	textTexture.loadFromRenderedText("+-+-+-+-+      +-+-+-+-+", BLACK);
+	textTexture.render(18, 178);
+	textTexture.loadFromRenderedText("|4|5|6|D|      |Q|W|E|R|", BLACK);
+	textTexture.render(18, 198);
+	textTexture.loadFromRenderedText("+-+-+-+-+  =>  +-+-+-+-+", BLACK);
+	textTexture.render(18, 218);
+	textTexture.loadFromRenderedText("|7|8|9|E|      |A|S|D|F|", BLACK);
+	textTexture.render(18, 238);
+	textTexture.loadFromRenderedText("+-+-+-+-+      +-+-+-+-+", BLACK);
+	textTexture.render(18, 258);
+	textTexture.loadFromRenderedText("|A|0|B|F|      |Z|X|C|V|", BLACK);
+	textTexture.render(18, 278);
+	textTexture.loadFromRenderedText("+-+-+-+-+      +-+-+-+-+", BLACK);
+	textTexture.render(18, 298);
 	SDL_RenderPresent(renderer);
 
 
@@ -273,13 +295,16 @@ int main(int argc, char** argv) {
 
 
 	//Main loop
-	bool quit = false;
-	SDL_Event e;
-	int mode = 1;
-	int regColor = 175;
-	Uint32 ticks = SDL_GetTicks();
-	int cycles = 0;
-	bool display_registers = true;
+	bool quit = false; //Quit flag
+	SDL_Event e; //SDL event
+	int mode = 1; //Regular vs Cycle by cycle, see Modes comment below
+	int regColor = 175; //Background color of the registers
+	Uint32 count_ticks = SDL_GetTicks(); //Used for counting how many cycles actually execute per second
+	int cycles = 0; //Used for counting how many cycles actually execute per second
+	bool display_registers = true; //Whether the registers should be displayed
+	int max_cycles = 500; //Maximum cycles per second
+	double cycle_length = 1000.0 / max_cycles; //Ticks per cycle
+	Uint32 limit_ticks = SDL_GetTicks(); //Used for limiting how many cycles per second
 	//Modes:
 	//0 - Run normally
 	//1 - Don't run cycle until space is pressed
@@ -314,6 +339,17 @@ int main(int argc, char** argv) {
 						SDL_SetWindowSize(window, SCREEN_WIDTH, SCREEN_HEIGHT);
 					} else {
 						SDL_SetWindowSize(window, SCREEN_WIDTH, SCREEN_HEIGHT_SMALL);
+					} break;
+
+				case SDLK_EQUALS: //Increase speed by 50
+					max_cycles += 50;
+					cycle_length = 1000.0 / max_cycles;
+					break;
+
+				case SDLK_MINUS: //Decrease speed by 50
+					if (max_cycles > 50) {
+						max_cycles -= 50;
+						cycle_length = 1000.0 / max_cycles;
 					} break;
 
 				default: //Chip8 key was pressed
@@ -365,10 +401,10 @@ int main(int argc, char** argv) {
 
 				//Display cycles per second
 				++cycles;
-				if (SDL_GetTicks() - ticks > 1000) {
-					snprintf(regRow[8], 50, "                         Cycles per second: %4i", (cycles));
+				if (SDL_GetTicks() - count_ticks > 1000) {
+					snprintf(regRow[8], 50, "Speed: %3i               Cycles per second: %4i", max_cycles, cycles);
 					cycles = 0;
-					ticks = SDL_GetTicks();
+					count_ticks = SDL_GetTicks();
 
 				}
 				textTexture.loadFromRenderedText(regRow[8], BLACK);
@@ -382,6 +418,10 @@ int main(int argc, char** argv) {
 				//Set draw flag to false
 				myChip8.draw_flag = false;
 			}
+
+			//Limit speed of emulation
+			while (SDL_GetTicks() - limit_ticks < cycle_length) continue;
+			limit_ticks = SDL_GetTicks();
 
 			//Don't run cycle until space is pressed
 			if (mode == 2) {

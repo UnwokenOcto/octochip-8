@@ -67,7 +67,7 @@ void chip8::init() {
 	}
 
 	//Initialize random generator
-	srand(time(NULL));
+	srand((int)time(NULL));
 }
 
 //Load application from file
@@ -200,8 +200,18 @@ bool chip8::emulateCycle() {
 			pc += 2;
 			break;
 
+		case 0x0001: //8XY1: Sets VX to VX OR VY
+			V[(opcode & 0x0F00) >> 8] |= V[(opcode & 0x00F0) >> 4];
+			pc += 2;
+			break;
+
 		case 0x0002: //8XY2: Sets VX to VX AND VY
 			V[(opcode & 0x0F00) >> 8] &= V[(opcode & 0x00F0) >> 4];
+			pc += 2;
+			break;
+
+		case 0x0003: //8XY3: Sets VX to VX XOR VY
+			V[(opcode & 0x0F00) >> 8] ^= V[(opcode & 0x00F0) >> 4];
 			pc += 2;
 			break;
 
@@ -215,7 +225,7 @@ bool chip8::emulateCycle() {
 			pc += 2;
 			break;
 
-		case 0x0005: //8XY5: Subtracts VY from VX (Set VF to 1 when there is no borrow)
+		case 0x0005: //8XY5: Sets VX to VX - VY (Set VF to 1 when there is no borrow)
 			if (V[(opcode & 0x00F0) >> 4] > (V[(opcode & 0x0F00) >> 8])) {
 				V[0xF] = 0;
 			} else {
@@ -225,12 +235,33 @@ bool chip8::emulateCycle() {
 			pc += 2;
 			break;
 
+		case 0x0006: //8XY6: Stores the least significant bit of VX in VF then shifts VX right by 1
+			V[0xF] = V[(opcode & 0x0F00) >> 8] & 0x01;
+			V[(opcode & 0x0F00) >> 8] >>= 1;
+			pc += 2;
+			break;
+
+		case 0x0007: //8XY7: Sets VX to VY - VX (Set VF to 1 when there is no borrow)
+			if (V[(opcode & 0x0F00) >> 8] > (V[(opcode & 0x00F0) >> 4])) {
+				V[0xF] = 0;
+			} else {
+				V[0xF] = 1;
+			}
+			V[(opcode & 0x0F00) >> 8] = V[(opcode & 0x00F0) >> 4] - V[(opcode & 0x0F00) >> 8];
+			pc += 2;
+			break;
+
+		case 0x000E: //8XYE: Stores the most significant bit of VX in VF then shifts VX to the left by 1
+			V[0xF] = V[(opcode & 0x0F00) >> 8] >> 7;
+			V[(opcode & 0x0F00) >> 8] <<= 1;
+			pc += 2;
+			break;
+
 		default:
 			printf("\nPC: %04X\nOP: %04X", pc, opcode);
 			success = false;
 			break;
-		}
-		break;
+		} break;
 
 	case 0x9000: //9XY0: Skips next instruction if VX != VY
 		if (V[(opcode & 0x0F00) >> 8] != V[(opcode & 0x00F0) >> 4]) {
@@ -243,6 +274,10 @@ bool chip8::emulateCycle() {
 	case 0xA000: //ANNN: Sets I to address NNN
 		I = opcode & 0x0FFF;
 		pc += 2;
+		break;
+
+	case 0xB000: //BNNN: Jumps to address NNN + V0
+		pc = (opcode & 0x0FFF) + V[0x0];
 		break;
 
 	case 0xC000: //CXNN: Sets VX to the result of bitwise AND on a random number (0-255) and NN
@@ -303,6 +338,13 @@ bool chip8::emulateCycle() {
 			V[(opcode & 0x0F00) >> 8] = delay_timer;
 			pc += 2;
 			break;
+
+		case 0x000A: //FX0A: A key press is awaited, then stored in VX
+			for (int i = 0; i <= 0xF; ++i) {
+				if (key[i] == 1) {
+					pc += 2;
+				}
+			} break;
 
 		case 0x0015: //FX15: Sets the delay timer to VX
 			delay_timer = V[(opcode & 0x0F00) >> 8];
