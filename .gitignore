@@ -1,8 +1,16 @@
 example-emulator/
+build/
 .vs/
 *.sln
 *.vcxproj
 *.filters
+*.lst
+*.map
+*.bat
+*.3dsx
+*.elf
+*.smdh
+
 
 #=============================
 #==C++ default set by Github==

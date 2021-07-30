@@ -230,7 +230,7 @@ std::map<int, int> keymap = { //The keymap
 		{ SDLK_z, 0xA },
 		{ SDLK_x, 0x0 },
 		{ SDLK_c, 0xB },
-		{ SDLK_v, 0xF },
+		{ SDLK_v, 0xF }
 };
 
 
