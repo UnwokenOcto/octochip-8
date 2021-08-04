@@ -250,6 +250,7 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
+	//Load chip8 ROM
 	if (!myChip8.loadApplication(argv[1])) {
 		return 1;
 	}
@@ -405,7 +406,6 @@ int main(int argc, char** argv) {
 					snprintf(regRow[8], 50, "Speed: %3i               Cycles per second: %4i", max_cycles, cycles);
 					cycles = 0;
 					count_ticks = SDL_GetTicks();
-
 				}
 				textTexture.loadFromRenderedText(regRow[8], BLACK);
 				textTexture.render(4, 404);

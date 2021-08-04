@@ -20,7 +20,7 @@ private:
 	unsigned char sound_timer; //Sounds buzzer when 0 is reached
 	unsigned short stack[16]; //Stack
 	unsigned short sp; //Stack pointer
-	unsigned long rom_size; //ROM size
+	unsigned long long rom_size; //ROM size
 
 	void init(); //Initialize data
 };

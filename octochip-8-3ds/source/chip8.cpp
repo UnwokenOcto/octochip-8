@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <3ds.h>
 //#include <Windows.h>
 #include "chip8.h"
 
@@ -73,39 +74,30 @@ void chip8::init() {
 //Load application from file
 bool chip8::loadApplication(const char* filename) {
 	init();
-	printf("Loading file: %s\n", filename);
+	char filePathStr[256] = "/chip8/";
+	strcat(filePathStr, filename);
+	printf("\x1b[23;1HLoading file: %s\n", filePathStr);
 
-	#pragma warning(suppress : 4996)
-	FILE* romFile = fopen(filename, "rb");
-	if (romFile == NULL) {
-		fputs("Could not open file", stderr);
-		return false;
-	}
+	Handle fileHandle;
+	FS_Path archPath = { PATH_EMPTY, 1, "" };
+	FS_Path filePath;
+	u32 bytesRead;
+	filePath = fsMakePath(PATH_ASCII, filePathStr);
+	unsigned char buffer[4096 - 512];
+
+	//Open file
+	FSUSER_OpenFileDirectly(&fileHandle, ARCHIVE_SDMC, archPath, filePath, FS_OPEN_READ, 0);
 
 	//Get file size
-	fseek(romFile, 0, SEEK_END);
-	rom_size = ftell(romFile);
-	rewind(romFile);
-
-	//Create a buffer to hold the file
-	char* buffer = (char*)malloc(sizeof(char) * rom_size);
-	if (buffer == NULL) {
-		fputs("Error creating buffer to load file", stderr);
-		return false;
-	}
+	FSFILE_GetSize(fileHandle, &rom_size);
 
 	//Copy file into buffer
-	#pragma warning(suppress : 6386)
-	size_t result = fread(buffer, 1, rom_size, romFile);
-	if (result != rom_size) {
-		fputs("Error copying file into buffer", stderr);
-		return false;
-	}
+	FSFILE_Read(fileHandle, &bytesRead, 0, &buffer, sizeof(buffer));
+	FSFILE_Close(fileHandle);
 
 	//Copy ROM into memory, if it fits
 	if ((4096 - 512) > rom_size) { // ???? Should this be >= ????
 		for (unsigned long i = 0; i < rom_size; ++i) {
-			#pragma warning(suppress : 6385)
 			memory[i + 0x200] = buffer[i];
 		}
 	} else {
@@ -113,8 +105,6 @@ bool chip8::loadApplication(const char* filename) {
 		printf("Error: File too big to fit in memory.\n");
 	}
 
-	fclose(romFile);
-	free(buffer);
 	return true;
 }
 
@@ -122,7 +112,7 @@ bool chip8::loadApplication(const char* filename) {
 bool chip8::emulateCycle() {
 	bool success = true;
 	opcode = memory[pc] << 8 | memory[pc + 1];
-
+	
 	//printf("\n0x%03X    %04X    ", pc, opcode);
 	//Execute opcode
 	switch (opcode & 0xF000) {
@@ -144,7 +134,7 @@ bool chip8::emulateCycle() {
 			break;
 
 		default: //0NNN: Unnecessary
-			printf("\n\nPC: %04X\nOP: %04X", pc, opcode);
+			printf("\x1b[22;1HPC: %04X\nOP: %04X", pc, opcode);
 			success = false;
 			break;
 		} break;
@@ -258,7 +248,7 @@ bool chip8::emulateCycle() {
 			break;
 
 		default:
-			printf("\nPC: %04X\nOP: %04X", pc, opcode);
+			printf("\x1b[22;1HPC: %04X\nOP: %04X", pc, opcode);
 			success = false;
 			break;
 		} break;
@@ -327,7 +317,7 @@ bool chip8::emulateCycle() {
 			break;
 
 		default:
-			printf("\n\nPC: %04X\nOP: %04X", pc, opcode);
+			printf("\x1b[22;1HPC: %04X\nOP: %04X", pc, opcode);
 			success = false;
 			break;
 		} break;
@@ -390,13 +380,13 @@ bool chip8::emulateCycle() {
 			break;
 
 		default:
-			printf("\n\nPC: %04X\nOP: %04X", pc, opcode);
+			printf("\x1b[22;1HPC: %04X\nOP: %04X", pc, opcode);
 			success = false;
 			break;
 		} break;
 
 	default:
-		printf("\n\nPC: %04X\nOP: %04X", pc, opcode);
+		printf("\x1b[22;1HPC: %04X\nOP: %04X", pc, opcode);
 		success = false;
 		break;
 	}
@@ -407,7 +397,7 @@ bool chip8::emulateCycle() {
 	}
 	if (sound_timer > 0) {
 		if (sound_timer == 1) {
-			printf("BEEP!\n\a"); //Yes, I'm this lazy
+			printf("\nBEEP!\a"); //Yes, I'm this lazy
 		}
 		--sound_timer;
 	}
