@@ -359,7 +359,7 @@ int main(int argc, char** argv) {
 					} break;
 				} break;
 
-			case SDL_KEYUP://Chip8 key was released
+			case SDL_KEYUP: //Chip8 key was released
 				if (keymap.count(e.key.keysym.sym) == 1) {
 					myChip8.key[keymap[e.key.keysym.sym]] = 0;
 				} break;
