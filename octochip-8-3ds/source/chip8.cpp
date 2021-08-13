@@ -74,15 +74,13 @@ void chip8::init() {
 //Load application from file
 bool chip8::loadApplication(const char* filename) {
 	init();
-	char filePathStr[256] = "/chip8/";
-	strcat(filePathStr, filename);
-	printf("\x1b[23;1HLoading file: %s\n", filePathStr);
+	printf("\x1b[25;1HLoading file: %s                                \n", filename);
 
 	Handle fileHandle;
 	FS_Path archPath = { PATH_EMPTY, 1, "" };
 	FS_Path filePath;
 	u32 bytesRead;
-	filePath = fsMakePath(PATH_ASCII, filePathStr);
+	filePath = fsMakePath(PATH_ASCII, filename);
 	unsigned char buffer[4096 - 512];
 
 	//Open file
@@ -90,6 +88,9 @@ bool chip8::loadApplication(const char* filename) {
 
 	//Get file size
 	FSFILE_GetSize(fileHandle, &rom_size);
+	if (rom_size == 0) {
+		return false;
+	}
 
 	//Copy file into buffer
 	FSFILE_Read(fileHandle, &bytesRead, 0, &buffer, sizeof(buffer));
@@ -103,6 +104,7 @@ bool chip8::loadApplication(const char* filename) {
 	} else {
 		fputs("File too big for memory", stderr);
 		printf("Error: File too big to fit in memory.\n");
+		return false;
 	}
 
 	return true;
@@ -134,7 +136,7 @@ bool chip8::emulateCycle() {
 			break;
 
 		default: //0NNN: Unnecessary
-			printf("\x1b[22;1HPC: %04X\nOP: %04X", pc, opcode);
+			printf("\x1b[25;1H\x1b[31mUnknown opcode %04X found\nat location %04X\x1b[0m\x1b[0m", opcode, pc);
 			success = false;
 			break;
 		} break;
@@ -248,7 +250,7 @@ bool chip8::emulateCycle() {
 			break;
 
 		default:
-			printf("\x1b[22;1HPC: %04X\nOP: %04X", pc, opcode);
+			printf("\x1b[25;1H\x1b[31mUnknown opcode %04X found\nat location %04X\x1b[0m\x1b[0m", opcode, pc);
 			success = false;
 			break;
 		} break;
@@ -317,7 +319,7 @@ bool chip8::emulateCycle() {
 			break;
 
 		default:
-			printf("\x1b[22;1HPC: %04X\nOP: %04X", pc, opcode);
+			printf("\x1b[25;1H\x1b[31mUnknown opcode %04X found\nat location %04X\x1b[0m\x1b[0m", opcode, pc);
 			success = false;
 			break;
 		} break;
@@ -380,13 +382,13 @@ bool chip8::emulateCycle() {
 			break;
 
 		default:
-			printf("\x1b[22;1HPC: %04X\nOP: %04X", pc, opcode);
+			printf("\x1b[25;1H\x1b[31mUnknown opcode %04X found\nat location %04X\x1b[0m\x1b[0m", opcode, pc);
 			success = false;
 			break;
 		} break;
 
 	default:
-		printf("\x1b[22;1HPC: %04X\nOP: %04X", pc, opcode);
+		printf("\x1b[25;1H\x1b[31mUnknown opcode %04X found\nat location %04X\x1b[0m\x1b[0m", opcode, pc);
 		success = false;
 		break;
 	}

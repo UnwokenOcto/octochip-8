@@ -5,11 +5,8 @@
 #include <map>
 #include "chip8.h"
 
-class display3ds {
-public:
-	display3ds();
-	~display3ds();
-};
+//Top screen 50x30 characters
+//Bottom screen 40x30 characters
 
 //Declare 3ds variables
 PrintConsole botScr;
@@ -30,8 +27,20 @@ std::map<u32, int> keymap = { //The keymap
 	{ KEY_B, 0xD }
 };
 
+//Keyboard callback function
+static SwkbdCallbackResult loadROMcallback(void* user, const char** ppMessage, const char* text, size_t textlen) {
+	if (!myChip8.loadApplication(text)) {
+		*ppMessage = "Unable to load file. Try again.";
+		return SWKBD_CALLBACK_CONTINUE;
+	}
+	*ppMessage = "Loaded file.";
+	return SWKBD_CALLBACK_OK;
+}
+
 //Main
 int main(int argc, char* argv[]) {
+	bool quit = false; //Quit flag
+
 	//Initialize display
 	gfxInitDefault();
 	hidInit();
@@ -44,28 +53,19 @@ int main(int argc, char* argv[]) {
 	//Control list
 	char control_list[] =
 		"OctoChip-8\n\n"
-		"A    : Run normally\n"
-		"Y    : Run one cycle\n"
-		"Touch: Toggle Registers\n"
-		"L/R  : Change speed by 50\n";
+		"A     : Run normally\n"
+		"Y     : Run one cycle (Pause-ish)\n"
+		"A+Y   : Bind keys\n"
+		"L/R   : Change speed by 50\n"
+		"Touch : Toggle Registers\n"
+		"Select: Load ROM\n"
+		"Start : Quit\n";
 	printf("%s", control_list);
 
-	//Load chip8 ROM
-	if (!myChip8.loadApplication("pong2.c8")) {
-		printf(" Error - press start to quit");
-		while (true) {
-			hidScanInput();
-			u32 kDown = hidKeysDown();
-			if (kDown & KEY_START) { //Quit Program
-				break;
-			}
-		}
-		return 1;
-	}
+	
 	
 
 	//Main loop
-	bool quit = false; //Quit flag
 	int mode = 1; //Regular vs Cycle by cycle, see Modes comment below
 	u64 count_ticks = svcGetSystemTick(); //Used for counting how many cycles actually execute per second
 	int cycles = 0; //Used for counting how many cycles actually execute per second
@@ -87,6 +87,36 @@ int main(int argc, char* argv[]) {
 			if (kDown & KEY_START) { //Quit Program
 				quit = true;
 			}
+			if (kDown & KEY_SELECT) { //Load chip8 ROM                 DOESNT SHOW ERROR IF ROM FILE NOT FOUND
+				mode = 1;
+				static SwkbdState swkbd;
+				static char filename[256] = "/chip8/";
+				SwkbdButton button = SWKBD_BUTTON_NONE;
+
+				swkbdInit(&swkbd, SWKBD_TYPE_NORMAL, 2, 255);
+				swkbdSetValidation(&swkbd, SWKBD_NOTEMPTY_NOTBLANK, 0, 0);
+				swkbdSetFeatures(&swkbd, SWKBD_ALLOW_HOME | SWKBD_ALLOW_RESET | SWKBD_ALLOW_POWER | SWKBD_DEFAULT_QWERTY);
+				swkbdSetFilterCallback(&swkbd, loadROMcallback, NULL);
+
+				do {
+					swkbdSetInitialText(&swkbd, filename);
+					button = swkbdInputText(&swkbd, filename, sizeof(filename));
+
+					if (button != SWKBD_BUTTON_NONE) {
+						break;
+					}
+
+					SwkbdResult res = swkbdGetResult(&swkbd);
+					if (res == SWKBD_RESETPRESSED) { //Reset combo pressed (L+R+Start)
+						quit = true;
+						aptSetChainloaderToSelf();
+						break;
+					} else if (res != SWKBD_HOMEPRESSED && res != SWKBD_POWERPRESSED) { //Reset combo or home/power was not pressed
+						break;
+					}
+					quit = !aptMainLoop();
+				} while (!quit);
+			}
 			if (kDown & KEY_A) { //Run normally
 				mode = 0;
 			}
@@ -98,7 +128,7 @@ int main(int argc, char* argv[]) {
 				if (display_registers) {
 					printf("\x1b[1;1H%s", control_list);
 				} else {
-					printf("\x1b[8;1H\x1b[0J");
+					printf("\x1b[11;1H\x1b[0J");
 				}
 			}
 			if (kDown & KEY_R) { //Increase max speed by 50
@@ -115,6 +145,42 @@ int main(int argc, char* argv[]) {
 				if (kDown & i->first) {
 					myChip8.key[i->second] = 1;
 				}
+			}
+		}
+
+		u32 kDR = hidKeysDownRepeat();
+		if ((kDR & KEY_A) && (kDR & KEY_Y)) { //Bind keys
+			printf("\x1b[11;1H\x1b[0J");
+			printf("\x1b[16;12HPress key to bind");
+			printf("\x1b[17;13Hto Chip-8 key 0");
+			printf("\x1b[21;12HTouch to skip key");
+			printf("\x1b[23;13HPress Y to end");
+			keymap.clear();
+
+			bool end = false;
+			int key = 0x0;
+			while (aptMainLoop() && !end && key <= 0xF) {
+				hidScanInput();
+				u32 kDown = hidKeysDown();
+				if (kDown != 0) {
+					if (kDown & KEY_START) { //Quit Program
+						end = true;
+						quit = true;
+					} else if (kDown & KEY_Y) { //End key binding
+						end = true;
+					} else if (kDown & KEY_TOUCH) { //Skip key
+						++key;
+						printf("\x1b[17;27H%X", key);
+					} else if ((kDown & (kDown - 1)) == 0){
+						keymap[kDown] = key;
+						++key;
+						printf("\x1b[17;27H%X", key);
+					}
+				}
+			}
+			printf("\x1b[11;1H\x1b[0J");
+			for (std::map<u32, int>::iterator i = keymap.begin(); i != keymap.end(); ++i) { //Chip8 key was pressed
+				printf("%i: %X\n", (int)log2(i->first), i->second);
 			}
 		}
 
@@ -159,15 +225,15 @@ int main(int argc, char* argv[]) {
 				//Display registers
 				unsigned short values[40] = { 0 };
 				myChip8.getRegisters(values);
-				printf("\x1b[8;1HI : %04X   PC: %04X   OP: %04X\nDT: %04X   ST: %04X   SP: %04X", values[34], values[33], values[32], values[38], values[39], values[35]);
+				printf("\x1b[11;1HI : %04X   PC: %04X   OP: %04X\nDT: %04X   ST: %04X   SP: %04X", values[34], values[33], values[32], values[38], values[39], values[35]);
 				for (int i = 0; i < 8; ++i) {
-					printf("\x1b[%i;1HV%X: %02X   V%X: %02X   S%X: %04X   S%X: %04X", i + 11, i, values[i], i + 8, values[i + 8], i, values[i + 16], i + 8, values[i + 24]);
+					printf("\x1b[%i;1HV%X: %02X   V%X: %02X   S%X: %04X   S%X: %04X", i + 14, i, values[i], i + 8, values[i + 8], i, values[i + 16], i + 8, values[i + 24]);
 				}
 
 				//Display cycles per second
 				++cycles;
 				if (svcGetSystemTick() - count_ticks > 1000) {
-					printf("\x1b[20;1HSpeed: %3i    Cycles per second: %4i", max_cycles, cycles);
+					printf("\x1b[23;1HSpeed: %3i    Cycles per second: %4i", max_cycles, cycles);
 					cycles = 0;
 					count_ticks = svcGetSystemTick();
 				}
